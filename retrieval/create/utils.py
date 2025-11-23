@@ -9,6 +9,7 @@ def load_jsonlines(file):
 
 def save_file_jsonl(data, fp):
     with jsonlines.open(fp, mode='w') as writer:
+        print("存储在:" + fp)
         writer.write_all(data)
 
 def save_tsv_dict(data, fp, fields):

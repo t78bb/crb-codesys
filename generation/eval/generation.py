@@ -13,7 +13,15 @@ from transformers import StoppingCriteria, StoppingCriteriaList
 from eval.utils import TokenizedDataset, complete_code
 
 from openai import OpenAI
-client = OpenAI()
+import os
+
+# 只在有 API key 时初始化 OpenAI 客户端（用于 api 模式）
+client = None
+if os.getenv("OPENAI_API_KEY"):
+    try:
+        client = OpenAI()
+    except Exception:
+        client = None
 
 class EndOfFunctionCriteria(StoppingCriteria):
     """Custom `StoppingCriteria` which checks if all generated functions in the batch are completed."""
@@ -165,7 +173,7 @@ def parallel_generations(
 
 
 
-def parse_code_snippets(text: str) -> list[str]:
+def parse_code_snippets(text: str) -> List[str]:
     """Extract code pieces from a text string.
     Args:
         text: str, model prediciton text.
@@ -212,7 +220,7 @@ def openai_generations(
             # if accelerator.is_main_process:
         return generations[:n_tasks]
     
-    def get_response(prompt: str, n_iters: int = 2, sleep: int = 10, repoeval_prompt=False, **kwargs) -> list[str]:
+    def get_response(prompt: str, n_iters: int = 2, sleep: int = 10, repoeval_prompt=False, **kwargs) -> List[str]:
         prompt_tokens = gpt_tokenizer.encode(prompt)
         prompt = gpt_tokenizer.decode(prompt_tokens[: args.max_length_input])
         
@@ -228,7 +236,7 @@ def openai_generations(
         # )
         # return [c.message.content for c in response.choices]
         i_iters = 0
-        response = ""
+        last_exception = None
         while i_iters < n_iters:
             i_iters += 1
             try:
@@ -248,9 +256,24 @@ def openai_generations(
                     **kwargs
                 )
                 return [c.message.content for c in response.choices]
-            except:
-                time.sleep(i_iters * sleep)
-        return [response]
+            except Exception as e:
+                last_exception = e
+                print(f"\n[ERROR] OpenAI API call failed (attempt {i_iters}/{n_iters})")
+                print(f"  Model: {model}")
+                print(f"  Error type: {type(e).__name__}")
+                print(f"  Error message: {str(e)}")
+                if hasattr(e, 'status_code'):
+                    print(f"  Status code: {e.status_code}")
+                if hasattr(e, 'response'):
+                    print(f"  Response: {e.response}")
+                import traceback
+                print(f"  Traceback:\n{''.join(traceback.format_exception(type(e), e, e.__traceback__))}")
+                if i_iters < n_iters:
+                    print(f"  Retrying after {i_iters * sleep} seconds...\n")
+                    time.sleep(i_iters * sleep)
+        # 如果所有重试都失败，抛出异常而不是返回空字符串
+        print(f"\n[FATAL ERROR] All {n_iters} attempts failed. Last error: {str(last_exception)}")
+        raise Exception(f"Failed to get response from OpenAI API after {n_iters} attempts. Last error: {str(last_exception)}") from last_exception
 
     # Setup generation settings
     gen_kwargs = {
@@ -287,6 +310,7 @@ def openai_generations(
 # import litellm
 # litellm.set_verbose=True
 from litellm import completion
+import litellm
 
 def litellm_generations(
     task,
@@ -309,7 +333,25 @@ def litellm_generations(
             # if accelerator.is_main_process:
         return generations[:n_tasks]
     
-    def get_response(prompt: str, n_iters: int = 2, sleep: int = 30, **kwargs) -> list[str]:
+    # 配置自定义 API 端点和 API key
+    # 优先使用环境变量，如果没有则使用默认值
+    api_base = os.getenv("OPENAI_API_BASE") or os.getenv("BASE_URL") or "https://api.zhizengzeng.com/v1"
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
+    
+    # 设置环境变量供 LiteLLM 使用
+    if api_key:
+        os.environ["OPENAI_API_KEY"] = api_key
+        print(f"Using API key: {api_key[:10]}...{api_key[-10:]}")
+    else:
+        print("Warning: No API key found in environment variables")
+    
+    if api_base:
+        # 设置 LiteLLM 的自定义端点
+        # 对于 OpenAI 兼容的 API，使用 OPENAI_API_BASE
+        os.environ["OPENAI_API_BASE"] = api_base
+        print(f"Using custom API base URL: {api_base}")
+    
+    def get_response(prompt: str, n_iters: int = 2, sleep: int = 30, **kwargs) -> List[str]:
         prompt_tokens = gpt_tokenizer.encode(prompt)
         prompt = gpt_tokenizer.decode(prompt_tokens[: args.max_length_input])
 
@@ -321,19 +363,38 @@ def litellm_generations(
         # )
         # return [c.message.content for c in response.choices]
         i_iters = 0
-        response = ""
+        last_exception = None
         while i_iters < n_iters:
             i_iters += 1
             try:
+                # LiteLLM 会自动从环境变量读取 OPENAI_API_KEY 和 OPENAI_API_BASE
+                # 也可以通过参数传递，但环境变量优先级更高
                 response = completion(
                     model=model, 
                     messages=[{"role": "user", "content": prompt}],
+                    api_base=api_base if api_base else None,
+                    api_key=api_key if api_key else None,
                     **kwargs
                 )
                 return [c.message.content for c in response.choices]
-            except:
-                time.sleep(i_iters * sleep)
-        return [response]
+            except Exception as e:
+                last_exception = e
+                print(f"\n[ERROR] LiteLLM API call failed (attempt {i_iters}/{n_iters})")
+                print(f"  Model: {model}")
+                print(f"  Error type: {type(e).__name__}")
+                print(f"  Error message: {str(e)}")
+                if hasattr(e, 'status_code'):
+                    print(f"  Status code: {e.status_code}")
+                if hasattr(e, 'response'):
+                    print(f"  Response: {e.response}")
+                import traceback
+                print(f"  Traceback:\n{''.join(traceback.format_exception(type(e), e, e.__traceback__))}")
+                if i_iters < n_iters:
+                    print(f"  Retrying after {i_iters * sleep} seconds...\n")
+                    time.sleep(i_iters * sleep)
+        # 如果所有重试都失败，抛出异常而不是返回空字符串
+        print(f"\n[FATAL ERROR] All {n_iters} attempts failed. Last error: {str(last_exception)}")
+        raise Exception(f"Failed to get response from LiteLLM API after {n_iters} attempts. Last error: {str(last_exception)}") from last_exception
 
     # Setup generation settings
     gen_kwargs = {
@@ -391,21 +452,32 @@ def gemini_generations(
         "top_p": args.top_p,
     }
 
-    def get_response(prompt: str, n_iters: int = 5, sleep: int = 30) -> list[str]:
+    def get_response(prompt: str, n_iters: int = 5, sleep: int = 30) -> List[str]:
         prompt_tokens = gpt_tokenizer.encode(prompt)
         prompt = gpt_tokenizer.decode(prompt_tokens[: args.max_length_input])
         # response = model.generate_content(prompt, generation_config=gen_kwargs)
         # return [c.content.parts[0].text for c in response.candidates]
         i_iters = 0
-        response = ""
+        last_exception = None
         while i_iters < n_iters:
             i_iters += 1
             try:
                 response = model.generate_content(prompt, generation_config=gen_kwargs)
                 return [c.content.parts[0].text for c in response.candidates]
-            except:
-                time.sleep(i_iters * sleep)
-        return [response]
+            except Exception as e:
+                last_exception = e
+                print(f"\n[ERROR] Gemini API call failed (attempt {i_iters}/{n_iters})")
+                print(f"  Model: {model}")
+                print(f"  Error type: {type(e).__name__}")
+                print(f"  Error message: {str(e)}")
+                import traceback
+                print(f"  Traceback:\n{''.join(traceback.format_exception(type(e), e, e.__traceback__))}")
+                if i_iters < n_iters:
+                    print(f"  Retrying after {i_iters * sleep} seconds...\n")
+                    time.sleep(i_iters * sleep)
+        # 如果所有重试都失败，抛出异常而不是返回空字符串
+        print(f"\n[FATAL ERROR] All {n_iters} attempts failed. Last error: {str(last_exception)}")
+        raise Exception(f"Failed to get response from Gemini API after {n_iters} attempts. Last error: {str(last_exception)}") from last_exception
 
     generations = []
     for i in tqdm(range(args.limit_start + curr_sample_idx, n_tasks)):

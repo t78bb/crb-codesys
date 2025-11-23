@@ -1,0 +1,5 @@
+myenv/
+env/
+venv/
+.venv/
+env.txt

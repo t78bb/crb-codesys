@@ -5,6 +5,7 @@ import logging
 import pathlib
 import argparse
 from time import time
+from typing import List, Dict
 from datasets import load_dataset
 from beir import util, LoggingHandler
 from beir.retrieval import models
@@ -19,7 +20,7 @@ logging.basicConfig(format='%(asctime)s - %(message)s',
                     level=logging.INFO,
                     handlers=[LoggingHandler()])
         
-def get_top_docs(results: dict, corpus: dict, task_id: str, topk: int = 10) -> list[str]:
+def get_top_docs(results: Dict, corpus: Dict, task_id: str, topk: int = 10) -> List[str]:
     if task_id not in results: return []
     doc_scores = results[task_id]
     doc_scores_sorted = sorted(doc_scores.items(), key=lambda item: item[1], reverse=True)
@@ -46,14 +47,14 @@ def main():
             swebench = load_dataset("princeton-nlp/SWE-bench_Lite")["test"]
             all_top_docs = [[] for _ in swebench]
 
-        instance_list = [i for i in os.listdir("datasets") if i.startswith(f"{args.dataset}_")]
+        instance_list = [i for i in os.listdir("my_datasets") if i.startswith(f"{args.dataset}_")]
         instance_list_filtered = []
         
         for ins_dir in tqdm(instance_list):
             logging.info("Instance Repo: {}".format(ins_dir))
             # load data and perform retrieval
             corpus, queries, qrels = GenericDataLoader(
-                data_folder=os.path.join("datasets", ins_dir)
+                data_folder=os.path.join("my_datasets", ins_dir)
             ).load(split="test")
             logging.info(f"Instance #{ins_dir}: #{len(corpus)} corpus, #{len(queries)} queries")
 
@@ -74,7 +75,7 @@ def main():
                     instance_id = swebench[index]["instance_id"]
                     all_top_docs[index] = get_top_docs(results, corpus, instance_id)
             elif args.dataset.startswith("repoeval"):
-                args.dataset_path = "output/repoeval/datasets/function_level_completion_2k_context_codex.test.clean.jsonl"
+                # args.dataset_path = "output/origin_repoeval/datasets/function_level_completion_2k_context_codex.test.clean.jsonl"
                 tasks = [json.loads(line.strip()) for line in open(args.dataset_path, 'r')]
                 prompts, references, docs, metadatas = [], [], [], []
                 for task in tasks:
@@ -224,6 +225,7 @@ if __name__ == "__main__":
                         help="Dataset to use for evaluation")
     parser.add_argument("--model", type=str, default="BAAI/bge-base-en-v1.5", help="Sentence-BERT model to use")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for retrieval")
+    parser.add_argument("--dataset_path", type=str, default="output/origin_repoeval/datasets/function_level_completion_2k_context_codex.test.clean.jsonl", help="Dataset path for evaluation")
     parser.add_argument("--output_file", type=str, default="outputs.json",
                         help="Specify the filepath if you want to save the retrieval (evaluation) results.")
     parser.add_argument("--results_file", type=str, default="results.json",

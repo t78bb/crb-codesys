@@ -11,6 +11,12 @@ REPOs = [
     "maxhumber_redframes",
 ]
 
+my_REPOs = [
+    "repoeval__assembly-station_",
+    "elevator"
+]
+
+
 REPOEVAL_ENV_NAME = "repoeval"
 CONDA_INIT_COMMAND = f"conda init bash ; source ~/.bashrc ; conda activate {REPOEVAL_ENV_NAME}"
 
@@ -19,21 +25,31 @@ task_id2tests = json.load(open(relevant_test_file))
 
 
 def copy_all_repos(
-    input_dir="../retrieval/output/repoeval/repositories/function_level", 
+    input_dir="../retrieval/output/codesys_repo", 
     output_dir = "scripts/repoeval", 
 ):
     """copy all repos to output_dir"""
-    for repo in REPOs:
-        repo_path = os.path.join(input_dir, repo)
-        output_repo_path = os.path.join(output_dir, repo)
-        os.makedirs(output_dir, exist_ok=True)
-        
-        print(f"Copying {repo} to {output_dir}")
-        subprocess.call(f"cp -r {repo_path} {output_dir}", shell=True)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Only copy repos that actually exist
+    if os.path.exists(input_dir):
+        for repo in os.listdir(input_dir):
+            repo_path = os.path.join(input_dir, repo)
+            if os.path.isdir(repo_path):
+                print(f"Copying {repo} to {output_dir}")
+                subprocess.call(f"cp -r {repo_path} {output_dir}", shell=True)
+    else:
+        # Fallback to hardcoded lists if directory doesn't exist
+        all_repos = REPOs + my_REPOs
+        for repo in all_repos:
+            repo_path = os.path.join(input_dir, repo)
+            if os.path.exists(repo_path):
+                print(f"Copying {repo} to {output_dir}")
+                subprocess.call(f"cp -r {repo_path} {output_dir}", shell=True)
 
 
 def setup_repos(
-    input_dir="../retrieval/output/repoeval/repositories/function_level", 
+    input_dir="../retrieval/output/codesys_repo", 
     output_dir = "scripts/repoeval", 
 ):
     """copy all repos to output_dir, run setup.py to install the repo as a package"""
@@ -42,7 +58,7 @@ def setup_repos(
     
     orig_working_dir = os.getcwd()
     
-    for repo in REPOs:
+    for repo in my_REPOs:
         output_repo_path = os.path.join(output_dir, repo)
 
         # switch the working dir to the repo 
@@ -64,7 +80,7 @@ def check_tests(
     orig_working_dir = os.getcwd()
         
     repo2return_code = {}
-    for repo in REPOs:
+    for repo in my_REPOs:
         output_repo_path = os.path.join(output_dir, repo)
         
         os.chdir(output_repo_path)
@@ -107,7 +123,7 @@ def postprocess_by_function(generation, target):
     
 def eval_generation(
     generation, target, metadata,
-    input_dir="../retrieval/output/repoeval/repositories/function_level", 
+    input_dir="../retrieval/output/codesys_repo", 
     output_dir = "scripts/repoeval",
     return_output = False,
     eval_relevant_test_only = False,
@@ -121,19 +137,41 @@ def eval_generation(
     
     orig_working_dir = os.getcwd()
     
-    local_file_path = '/'.join(metadata["fpath_tuple"])
-    input_file_path = os.path.join(input_dir, local_file_path)
-    output_file_path = os.path.join(output_dir, local_file_path)
+    task_id = metadata["task_id"]
+    # Extract repo name from task_id (e.g., "assembly-station/0" -> "assembly-station")
+    repo_base_name = task_id.split('/')[0]
     
-    repo = metadata["fpath_tuple"][0]
+    # Try to find the actual repo directory name
+    # Support both formats: "assembly-station" and "repoeval__assembly-station_"
+    repo = None
+    if os.path.exists(input_dir):
+        # First try the base name directly
+        if os.path.exists(os.path.join(input_dir, repo_base_name)):
+            repo = repo_base_name
+        # Then try with repoeval prefix
+        elif os.path.exists(os.path.join(input_dir, f"repoeval__{repo_base_name}_")):
+            repo = f"repoeval__{repo_base_name}_"
+        # If still not found, search for any directory containing the repo name
+        else:
+            for dir_name in os.listdir(input_dir):
+                if repo_base_name in dir_name and os.path.isdir(os.path.join(input_dir, dir_name)):
+                    repo = dir_name
+                    break
+    
+    # Fallback to base name if not found
+    if repo is None:
+        repo = repo_base_name
+    
+    local_file_path = '/'.join(metadata["fpath_tuple"])
+    input_file_path = os.path.join(input_dir, repo, local_file_path)
+    output_file_path = os.path.join(output_dir, repo, local_file_path)
+    
     input_repo_path = os.path.join(input_dir, repo)
     output_repo_path = os.path.join(output_dir, repo)
-    
-    task_id = metadata["task_id"]
     metadata["tests"] = task_id2tests.get(task_id, [])
     
-    # get start and end line ids
-    start_line_id = metadata["line_no"]
+    # get start and end line ids (support both "line_no" and "lineno")
+    start_line_id = metadata.get("line_no") or metadata.get("lineno", 0)
     target = target.rstrip() if target[-1] == '\n' else target
     target_line_num = len(target.split('\n'))
     end_line_id = start_line_id + target_line_num

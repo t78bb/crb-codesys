@@ -2,7 +2,7 @@
 # https://github.com/Naman-ntc/codescratch/blob/main/evaluation/bigcode-evaluation-harness/lm_eval/tasks/custom_metrics/apps_custom_metrics/utils.py
 
 import os
-
+from typing import List
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import json
 import multiprocessing
@@ -98,7 +98,7 @@ def evaluate_generations_by_problem(args):
 
 def evaluate_generations(
     samples_list: list,
-    generations_list: list[list[str]],
+    generations_list: List[List[str]],
     debug: bool = False,
     num_process_evaluate: int = 16,
     timeout=6,
@@ -159,7 +159,7 @@ def get_evaluation_sample(example: dict) -> dict:
 
 
 def codegen_metrics(
-    examples: list[dict],
+    examples: List[dict],
     generations,
     k_list=[1, 5],
     num_process_evaluate=16,

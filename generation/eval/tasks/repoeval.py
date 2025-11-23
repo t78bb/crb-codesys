@@ -96,7 +96,7 @@ class GeneralRepoEval(Task):
         self.setup_repoeval = args.setup_repoeval if args else False
         self.metric_output_path = args.metric_output_path if args else os.getcwd()
         self.repoeval_input_repo_dir = args.repoeval_input_repo_dir \
-            if args else "../retrieval/output/repoeval/repositories/function_level"
+            if args and args.repoeval_input_repo_dir else "../retrieval/my_datasets"
         self.repoeval_cache_dir = args.repoeval_cache_dir if args else "tmp"
 
     def get_dataset(self):
@@ -127,7 +127,13 @@ class GeneralRepoEval(Task):
         if tokenizer.pad_token is None:
             tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
-        max_doc_num = max([len(x) for x in self.dataset["test"]["docs"]])
+        # Check if docs column exists and if we should use retrieval
+        has_docs = "docs" in self.dataset["test"].column_names
+        if self.topk_docs == 0 or not has_docs:
+            max_doc_num = 0
+        else:
+            max_doc_num = max([len(x) for x in self.dataset["test"]["docs"]])
+        
         if self.topk_docs == 0 or max_doc_num == 0:
             start = time.time()
             print(f"Preprocessing infile prompts ..")
@@ -230,10 +236,15 @@ class GeneralRepoEval(Task):
         
         import evaluate
         bleu = evaluate.load("bleu")
-        bleu_results = bleu.compute(
-            references=[[x] for x in clean_references],
-            predictions=clean_generations,
-        )
+        try:
+            bleu_results = bleu.compute(
+                references=[[x] for x in clean_references],
+                predictions=clean_generations,
+            )
+        except (ZeroDivisionError, ValueError) as e:
+            # Handle edge cases where BLEU calculation fails
+            print(f"Warning: BLEU calculation failed: {e}. Using default values.")
+            bleu_results = {"bleu": 0.0, "precisions": [0.0, 0.0, 0.0, 0.0], "brevity_penalty": 0.0, "length_ratio": 0.0, "translation_length": 0, "reference_length": 0}
         
         results = {
             "bleu_results": bleu_results,

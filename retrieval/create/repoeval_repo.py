@@ -4,7 +4,10 @@ import glob
 import json
 import argparse
 import requests
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import zipfile
+from typing import List, Dict
 from collections import defaultdict
 from create.utils import save_tsv_dict, save_file_jsonl
 
@@ -27,6 +30,11 @@ REPOs_function = [
     "lucidrains_imagen-pytorch",
     "maxhumber_redframes",
 ]
+
+REPOs_codesys = [
+    "plc_hello_mixing_tank"
+]
+
 
 REPO_DIRs = {
     "api": "repositories/line_and_api_level",
@@ -142,6 +150,40 @@ class RepoWindowMaker:
 
 
 def download_data(directory: str = "repoeval"):
+    # os.makedirs(directory, exist_ok=True)
+    
+    # datasets_dir = os.path.join(directory, "datasets")
+    # repos_function_dir = os.path.join(directory, "repositories", "function_level")
+
+    # print(f"Start preparing the necessary `datasets` and `repositories` files.")
+    
+    # # 使用本地 ZIP 文件路径
+    # local_zip_path = "/root/code_rag_bench/code-rag-bench/retrieval/codesys_project/plc_hello_mixing_tank.zip"
+    
+    # if not os.path.exists(local_zip_path):
+    #     raise FileNotFoundError(f"本地 ZIP 文件不存在: {local_zip_path}")
+    
+    # print(f"使用本地 ZIP 文件: {local_zip_path}")
+    
+    # # 解压 datasets
+    # if not os.path.exists(datasets_dir):
+    #     print(f"正在解压 datasets 到: {datasets_dir}")
+    #     with zipfile.ZipFile(local_zip_path, 'r') as z:
+    #         z.extractall(datasets_dir)
+    #     print("✅ Datasets 解压完成")
+    # else:
+    #     print(f"✓ Datasets 已存在，跳过: {datasets_dir}")
+
+    # # 解压 repositories
+    # if not os.path.exists(repos_function_dir):
+    #     print(f"正在解压 repositories 到: {repos_function_dir}")
+    #     with zipfile.ZipFile(local_zip_path, 'r') as z:
+    #         z.extractall(repos_function_dir)
+    #     print("✅ Repositories 解压完成")
+    # else:
+    #     print(f"✓ Repositories 已存在，跳过: {repos_function_dir}")
+
+
     os.makedirs(directory, exist_ok=True)
     
     datasets_dir = os.path.join(directory, "datasets")
@@ -167,7 +209,7 @@ def download_data(directory: str = "repoeval"):
 
 
 def repo2code(
-    repo: str, tasks: list[dict], data_cache_dir: str, 
+    repo: str, tasks: List[Dict], data_cache_dir: str, 
     split: str, context_length: str,
     window_size: int, slice_size: int
 ):
@@ -205,6 +247,9 @@ def main():
     download_data(args.data_cache_dir)
 
     REPOs = REPOs_function if args.split == "function" else REPOs_line_and_api
+
+    REPOs = REPOs_codesys
+
     
     file_name = f"{args.split}_level_completion_{args.context_length}_context_codex.test.jsonl"
     data_path = os.path.join(args.data_cache_dir, "datasets", file_name)
@@ -231,7 +276,7 @@ def main():
                 
         data = [json.loads(l.rstrip()) for l in open(new_data_path, 'r')]
 
-    # group data instances by repository
+    # group data instances by repositoryn
     data_dict = {}
     for ex in data:
         repo_name = ex["metadata"]["task_id"]
@@ -281,7 +326,7 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output_dir", type=str, default="datasets")
+    parser.add_argument("--output_dir", type=str, default="datasets") 
     parser.add_argument("--results_dir", type=str, default="results")
     parser.add_argument("--split", type=str, default="function", choices=["function"])
     parser.add_argument("--context_length", type=str, default="2k", choices=["1k", "2k", "4k"])

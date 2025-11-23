@@ -273,7 +273,7 @@ def parse_args():
     parser.add_argument(
         "--repoeval_input_repo_dir",
         type=str,
-        default="../retrieval/output/repoeval/repositories/function_level",
+        default="../retrieval/output/codesys_repo",
         help="The directory where the repositories of RepoEval-function are stored."
     )
     parser.add_argument(

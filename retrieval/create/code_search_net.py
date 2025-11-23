@@ -31,10 +31,14 @@ def main():
 
     args = parser.parse_args()
     dataset = datasets.load_dataset("code_search_net", args.language)
-
+    print("args.output_dir:" + args.output_dir)
     path = os.path.join(args.output_dir, "code_search_net_{}".format(args.language))
     os.makedirs(path)
+    print("最终目录路径:" + path)
     os.makedirs(os.path.join(path, "qrels"))
+
+    # return
+
 
     docs = []
     queries = []
