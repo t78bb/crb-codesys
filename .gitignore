@@ -3,3 +3,4 @@ env/
 venv/
 .venv/
 env.txt
+retrieval/my_datasets/code_search_net_python/
