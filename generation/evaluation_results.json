@@ -1,23 +1,20 @@
 {
   "repoeval-function": {
     "bleu_results": {
-      "bleu": 1.4873688553720727e-32,
+      "bleu": 0.05367928322438162,
       "precisions": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
+        0.22878440366972477,
+        0.058654399079930995,
+        0.030565167243367934,
+        0.020242914979757085
       ],
-      "brevity_penalty": 1.4873688553720727e-32,
-      "length_ratio": 0.013461538461538462,
-      "translation_length": 7,
-      "reference_length": 520
+      "brevity_penalty": 1.0,
+      "length_ratio": 2.0161849710982658,
+      "translation_length": 1744,
+      "reference_length": 865
     },
     "EM": 0.0,
-    "ES": 0.01725039205436485,
-    "Pass@1": 0.0,
-    "Num_computed": 1,
-    "Num_timeout": 0
+    "ES": 0.24586766613673755
   },
   "config": {
     "prefix": "",
@@ -42,7 +39,7 @@
     "batch_size": 1,
     "max_length_input": 2048,
     "max_length_generation": 1024,
-    "topk_docs": 0,
+    "topk_docs": 5,
     "precision": "fp32",
     "load_in_8bit": false,
     "load_in_4bit": false,
@@ -51,7 +48,7 @@
     "limit_start": 0,
     "save_every_k_tasks": -1,
     "postprocess": true,
-    "allow_code_execution": true,
+    "allow_code_execution": false,
     "generation_only": false,
     "load_generations_path": null,
     "load_data_path": null,
@@ -67,14 +64,15 @@
     "check_references": false,
     "dataset_path": "json",
     "dataset_name": null,
-    "data_files_test": "../retrieval/output/repoeval/assembly-station.jsonl",
+    "data_files_test": "../codesys_result/20251125_131451/repoeval_Builder_Application_RPI/results.jsonl",
     "cache_dir": null,
     "model_cache_dir": null,
     "setup_repoeval": false,
     "repoeval_input_repo_dir": "../retrieval/output/codesys_repo",
     "repoeval_cache_dir": "scripts/repoeval",
+    "result_dir": "20251125_131451",
     "data_files": {
-      "test": "../retrieval/output/repoeval/assembly-station.jsonl"
+      "test": "../codesys_result/20251125_131451/repoeval_Builder_Application_RPI/results.jsonl"
     }
   }
 }

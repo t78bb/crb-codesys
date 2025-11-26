@@ -282,6 +282,12 @@ def parse_args():
         default="scripts/repoeval",
         help="The directory where we will copy the repositories of RepoEval-function and run pytest."
     )
+    parser.add_argument(
+        "--result_dir",
+        type=str,
+        default=None,
+        help="Directory name under codesys_result to save results. If not provided, will use timestamp."
+    )
     return parser.parse_args()
 
 
@@ -307,6 +313,113 @@ def main():
         args.data_files = None
     else:
         args.data_files = {"test": args.data_files_test}
+        
+        # 从 data_files_test 中提取项目名，并设置输出目录
+        # 例如: ../codesys_result/20251125_143022/repoeval_can/results.jsonl
+        # 或: ../retrieval/output/repoeval/assembly-station.jsonl -> assembly-station
+        if args.data_files_test:
+            import os
+            from datetime import datetime
+            codesys_result_dir = "../codesys_result"
+            
+            # 尝试从 data_files_test 路径中提取 result_dir 和 project_dir（如果路径包含 codesys_result）
+            result_dir_name = None
+            project_dir_name = None
+            
+            if "codesys_result" in args.data_files_test:
+                # 路径格式: ../codesys_result/{result_dir}/{dataset}/results.jsonl
+                # 或: /root/code_rag_bench/code-rag-bench/codesys_result/{result_dir}/{dataset}/results.jsonl
+                path_parts = args.data_files_test.replace("\\", "/").split("/")
+                try:
+                    codesys_idx = path_parts.index("codesys_result")
+                    if codesys_idx + 1 < len(path_parts):
+                        result_dir_name = path_parts[codesys_idx + 1]
+                    if codesys_idx + 2 < len(path_parts):
+                        project_dir_name = path_parts[codesys_idx + 2]
+                        print(f"从路径中提取 result_dir: {result_dir_name}, project_dir: {project_dir_name}")
+                except ValueError:
+                    pass
+            
+            # 如果提供了 --result_dir，优先使用它
+            if args.result_dir:
+                result_dir_name = args.result_dir
+            
+            # 如果既没有从路径提取，也没有提供参数，使用时间戳
+            if not result_dir_name:
+                result_dir_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+                print(f"未指定 --result_dir 且无法从路径提取，使用时间戳: {result_dir_name}")
+            
+            # 在 codesys_result 下查找对应的目录
+            if os.path.exists(codesys_result_dir):
+                result_dir = os.path.join(codesys_result_dir, result_dir_name)
+                
+                # 如果从路径中提取到了 project_dir_name，直接使用
+                if project_dir_name and os.path.exists(os.path.join(result_dir, project_dir_name)):
+                    output_dir = os.path.join(result_dir, project_dir_name)
+                    os.makedirs(output_dir, exist_ok=True)
+                    
+                    # 修改输出文件路径
+                    if args.metric_output_path == "evaluation_results.json":
+                        args.metric_output_path = os.path.join(output_dir, "evaluation_results.json")
+                    
+                    # 修改生成文件路径（如果是默认值或包含 repoeval-function）
+                    if args.save_generations_path == "generations.json" or "repoeval-function" in args.save_generations_path:
+                        args.save_generations_path = os.path.join(output_dir, "generations_repoeval-function.json")
+                    
+                    print(f"结果目录: {result_dir}")
+                    print(f"输出目录: {output_dir}")
+                    print(f"evaluation_results.json: {args.metric_output_path}")
+                    print(f"generations_repoeval-function.json: {args.save_generations_path}")
+                else:
+                    # 回退到原来的逻辑：从文件名提取项目名并匹配
+                    def remove_repoeval_prefix(d):
+                        """移除 repoeval 前缀"""
+                        if d.startswith("repoeval_"):
+                            name = d[len("repoeval_"):]
+                            if name.startswith("_"):
+                                name = name[1:]
+                            if name.endswith("_"):
+                                name = name[:-1]
+                            return name
+                        return d
+                    
+                    filename = os.path.basename(args.data_files_test)
+                    project_name = os.path.splitext(filename)[0]  # 去掉 .jsonl 扩展名
+                    
+                    # 查找匹配的项目目录（在结果目录下）
+                    all_dirs = []
+                    if os.path.exists(result_dir):
+                        all_dirs = [d for d in os.listdir(result_dir) 
+                                     if os.path.isdir(os.path.join(result_dir, d))]
+                    
+                    # 查找匹配的目录
+                    matching_dir = None
+                    for d in all_dirs:
+                        clean_name = remove_repoeval_prefix(d)
+                        if clean_name == project_name:
+                            matching_dir = d
+                            break
+                    
+                    if matching_dir:
+                        output_dir = os.path.join(result_dir, matching_dir)
+                        os.makedirs(output_dir, exist_ok=True)
+                        
+                        # 修改输出文件路径
+                        if args.metric_output_path == "evaluation_results.json":
+                            args.metric_output_path = os.path.join(output_dir, "evaluation_results.json")
+                        
+                        # 修改生成文件路径（如果是默认值或包含 repoeval-function）
+                        if args.save_generations_path == "generations.json" or "repoeval-function" in args.save_generations_path:
+                            args.save_generations_path = os.path.join(output_dir, "generations_repoeval-function.json")
+                        
+                        print(f"结果目录: {result_dir}")
+                        print(f"输出目录: {output_dir}")
+                        print(f"evaluation_results.json: {args.metric_output_path}")
+                        print(f"generations_repoeval-function.json: {args.save_generations_path}")
+                    else:
+                        print(f"警告: 在 {result_dir} 下未找到匹配项目 '{project_name}' 的目录")
+                        print(f"提示: 将使用默认路径保存文件")
+    
     transformers.logging.set_verbosity_error()
     datasets.logging.set_verbosity_error()
 
@@ -333,6 +446,7 @@ def main():
         if args.model_backend == 'vllm': 
             evaluator = vllmEvaluator(None, None, None, args)
         elif args.model_backend == "api":
+            print(":iii")
             evaluator = ApiEvaluator(args.model, args)
         else:
             evaluator = Evaluator(accelerator, None, None, args)

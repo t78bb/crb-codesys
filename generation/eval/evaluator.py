@@ -253,6 +253,7 @@ class ApiEvaluator(Evaluator):
         #         intermediate_save_generations_path=intermediate_save_generations_path,
         #     )
         else:
+            print("hello")
             generations = litellm_generations(
                 task,
                 dataset,

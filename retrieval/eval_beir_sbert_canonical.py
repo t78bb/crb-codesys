@@ -4,6 +4,7 @@ import random
 import logging
 import pathlib
 import argparse
+from datetime import datetime
 from time import time
 from typing import List, Dict
 from datasets import load_dataset
@@ -30,6 +31,36 @@ def get_top_docs(results: Dict, corpus: Dict, task_id: str, topk: int = 10) -> L
 
 
 def main():
+    # 根据数据集名称创建输出目录（与 retrieval 同级）
+    base_output_dir = "../codesys_result"
+    
+    # 确定结果目录名称：如果提供了 --result_dir 则使用它，否则使用时间戳
+    if args.result_dir:
+        result_dir_name = args.result_dir
+    else:
+        result_dir_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # 创建结果目录
+    result_dir = os.path.join(base_output_dir, result_dir_name)
+    os.makedirs(result_dir, exist_ok=True)
+    
+    # 在结果目录下创建数据集目录
+    dataset_name = args.dataset  # 例如: repoeval__assembly-station
+    output_dir = os.path.join(result_dir, dataset_name)
+    
+    # 创建目录（如果不存在）
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 修改输出文件路径，使其保存到数据集目录下
+    args.output_file = os.path.join(output_dir, "outputs.json")
+    args.results_file = os.path.join(output_dir, "results.jsonl")
+    
+    logging.info(f"Result directory: {result_dir}")
+    logging.info(f"Output directory: {output_dir}")
+    logging.info(f"Output file: {args.output_file}")
+    logging.info(f"Results file: {args.results_file}")
+    
+    # 如果文件已存在则删除（准备覆盖）
     if os.path.exists(args.results_file):
         os.remove(args.results_file)
 
@@ -47,7 +78,10 @@ def main():
             swebench = load_dataset("princeton-nlp/SWE-bench_Lite")["test"]
             all_top_docs = [[] for _ in swebench]
 
-        instance_list = [i for i in os.listdir("my_datasets") if i.startswith(f"{args.dataset}_")]
+        # 匹配逻辑：支持完全匹配或以下划线开头
+        # 如果 args.dataset 本身已经以下划线结尾，则完全匹配；否则匹配 args.dataset_ 开头的目录
+        instance_list = [i for i in os.listdir("my_datasets") 
+                         if i == args.dataset or i.startswith(f"{args.dataset.rstrip('_')}_")]
         instance_list_filtered = []
         
         for ins_dir in tqdm(instance_list):
@@ -137,7 +171,7 @@ def main():
             json.dump(avg_eval_results, f)
     else:
         dataset =  args.dataset
-        corpus, queries, qrels = GenericDataLoader(data_folder=os.path.join("datasets", args.dataset)).load(split="test")
+        corpus, queries, qrels = GenericDataLoader(data_folder=os.path.join("my_datasets", args.dataset)).load(split="test")
         #### Retrieve dense results (format of results is identical to qrels)
         start_time = time()
         results = retriever.retrieve(corpus, queries)
@@ -228,8 +262,10 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_path", type=str, default="output/origin_repoeval/datasets/function_level_completion_2k_context_codex.test.clean.jsonl", help="Dataset path for evaluation")
     parser.add_argument("--output_file", type=str, default="outputs.json",
                         help="Specify the filepath if you want to save the retrieval (evaluation) results.")
-    parser.add_argument("--results_file", type=str, default="results.json",
-                        help="Specify the filepath if you want to save the retrieval results.")
+    parser.add_argument("--results_file", type=str, default="results.jsonl",
+                        help="Specify the filepath if you want to save the retrieval results (JSONL format, one JSON object per line).")
+    parser.add_argument("--result_dir", type=str, default=None,
+                        help="Directory name under codesys_result to save results. If not provided, will use timestamp.")
     args = parser.parse_args()
 
     main()

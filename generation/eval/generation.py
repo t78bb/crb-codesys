@@ -287,6 +287,18 @@ def openai_generations(
     generations = []
     for i in tqdm(range(args.limit_start + curr_sample_idx, n_tasks)):
         i_prompt = task.get_prompt(doc=dataset[i])
+        # 打印 prompt 信息（仅打印前2个样本，避免输出过多）
+        sample_idx = i - (args.limit_start + curr_sample_idx)
+        if sample_idx < 2:
+            print(f"\n{'='*80}")
+            print(f"Sample {sample_idx} (dataset index {i}) - Prompt (length: {len(i_prompt)} chars)")
+            print(f"{'='*80}")
+            # 打印前 2000 个字符
+            prompt_preview = i_prompt[:2000] if len(i_prompt) > 2000 else i_prompt
+            print(prompt_preview)
+            if len(i_prompt) > 2000:
+                print(f"\n... (truncated, total length: {len(i_prompt)} chars)")
+            print(f"{'='*80}\n")
         i_resp = get_response(prompt=i_prompt, repoeval_prompt=task.__class__.__name__=='RepoEval', **gen_kwargs) # list[str]
         generations.append(i_resp)
         if len(generations) % save_every_k_tasks == 0:
@@ -405,6 +417,18 @@ def litellm_generations(
     generations = []
     for i in tqdm(range(args.limit_start + curr_sample_idx, n_tasks)):
         i_prompt = task.get_prompt(doc=dataset[i])
+        # 打印 prompt 信息（仅打印前2个样本，避免输出过多）
+        sample_idx = i - (args.limit_start + curr_sample_idx)
+        if sample_idx < 2:
+            print(f"\n{'='*80}")
+            print(f"Sample {sample_idx} (dataset index {i}) - Prompt (length: {len(i_prompt)} chars)")
+            print(f"{'='*80}")
+            # 打印前 2000 个字符
+            prompt_preview = i_prompt[:2000] if len(i_prompt) > 2000 else i_prompt
+            print(prompt_preview)
+            if len(i_prompt) > 2000:
+                print(f"\n... (truncated, total length: {len(i_prompt)} chars)")
+            print(f"{'='*80}\n")
         i_resp = get_response(prompt=i_prompt, **gen_kwargs) # list[str]
         generations.append(i_resp)
     
@@ -482,6 +506,18 @@ def gemini_generations(
     generations = []
     for i in tqdm(range(args.limit_start + curr_sample_idx, n_tasks)):
         i_prompt = task.get_prompt(doc=dataset[i])
+        # 打印 prompt 信息（仅打印前2个样本，避免输出过多）
+        sample_idx = i - (args.limit_start + curr_sample_idx)
+        if sample_idx < 2:
+            print(f"\n{'='*80}")
+            print(f"Sample {sample_idx} (dataset index {i}) - Prompt (length: {len(i_prompt)} chars)")
+            print(f"{'='*80}")
+            # 打印前 2000 个字符
+            prompt_preview = i_prompt[:2000] if len(i_prompt) > 2000 else i_prompt
+            print(prompt_preview)
+            if len(i_prompt) > 2000:
+                print(f"\n... (truncated, total length: {len(i_prompt)} chars)")
+            print(f"{'='*80}\n")
         i_resp = get_response(prompt=i_prompt) # list[str]
         if not (isinstance(i_resp, list) and isinstance(i_resp[0], str)):
             i_resp = [""]

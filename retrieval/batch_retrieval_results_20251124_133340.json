@@ -1,0 +1,44 @@
+{
+  "success": [
+    "repoeval_Builder_Application_RPI",
+    "repoeval_Command1",
+    "repoeval_Decorator_Application",
+    "repoeval_FB50_虚轴控制",
+    "repoeval_GreatExampleOfAdvantages",
+    "repoeval_Interation_HowTo",
+    "repoeval_PID_controller",
+    "repoeval_PT1Filter",
+    "repoeval_ProductionLine",
+    "repoeval_Proxy_Application",
+    "repoeval_Robotics_DynamicModel",
+    "repoeval_Wrappers",
+    "repoeval__assembly-station_",
+    "repoeval_can",
+    "repoeval_core",
+    "repoeval_counter",
+    "repoeval_elevator",
+    "repoeval_healthydata",
+    "repoeval_isScaleOutput",
+    "repoeval_modbus",
+    "repoeval_plc_hello_mixing_tank",
+    "repoeval_三轴CNC运动实训",
+    "repoeval_交通信号灯控制实训",
+    "repoeval_四层电梯控制实训",
+    "repoeval_开放式双轴卷绕机编程开发实训",
+    "repoeval_测量控件",
+    "repoeval_电子凸轮运动实训",
+    "repoeval_电子齿轮运动实训",
+    "repoeval_读写文件"
+  ],
+  "failed": [],
+  "skipped": [
+    {
+      "dataset": "repoeval_canonical",
+      "reason": "dataset_path 文件不存在: output/repoeval/canonical.jsonl"
+    },
+    {
+      "dataset": "repoeval_code_search_net_python",
+      "reason": "dataset_path 文件不存在: output/repoeval/code_search_net_python.jsonl"
+    }
+  ]
+}
